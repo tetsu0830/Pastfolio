@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pastfolio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/ja.js"></script>
+    <style>
+        /* 以前のCSSと同じなので省略 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        :root {
+            --bg-dark: #111827;
+            --bg-panel: #1f2937;
+            --border-color: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --accent-start: #10b981;
+            --accent-end: #3b82f6;
+        }
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+        }
+        .glass-panel {
+            background: rgba(31, 41, 55, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(55, 65, 81, 0.3);
+        }
+        .form-input {
+            background-color: rgba(55, 65, 81, 0.5);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            transition: all 0.2s ease-in-out;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-start);
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.5);
+        }
+        .btn-gradient {
+            background-image: linear-gradient(to right, var(--accent-start), var(--accent-end));
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px 0 rgba(16, 185, 129, 0.2);
+        }
+        .btn-gradient:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px 0 rgba(59, 130, 246, 0.25);
+        }
+        .suggestion-item { cursor: pointer; transition: background-color 0.2s; }
+        .loader {
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--accent-start);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- UI部分はGAS版と同じなので省略 -->
+    <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
+        <header class="text-center mb-8 sm:mb-10">
+            <div class="flex items-center justify-center gap-3 mb-2">
+                <svg width="32" height="32" class="sm:w-10 sm:h-10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 13L9 13L11.5 5L14.5 20L17 13L21 13" stroke="url(#paint0_linear_1_2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="paint0_linear_1_2" x1="3" y1="12.5" x2="21" y2="12.5" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#10B981"/>
+                            <stop offset="1" stop-color="#3B82F6"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-500">
+                    Pastfolio
+                </h1>
+            </div>
+            <p class="text-sm sm:text-base text-slate-400">過去の投資を可視化し、未来のヒントを見つける場所</p>
+        </header>
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+            <div class="lg:col-span-1 glass-panel p-4 sm:p-6 rounded-2xl">
+                <h2 class="text-xl sm:text-2xl font-bold mb-6">ポートフォリオ設定</h2>
+                <div class="space-y-5 mb-6">
+                    <div class="relative">
+                        <label for="ticker" class="block text-sm font-medium text-slate-300 mb-1">銘柄名 / ティッカー</label>
+                        <input type="text" id="ticker" class="form-input w-full rounded-lg py-2 px-3" placeholder="例: トヨタ, AAPL" autocomplete="off">
+                        <div id="tickerSuggestions" class="absolute z-10 w-full bg-slate-800 border border-slate-600 rounded-md mt-1 shadow-lg hidden max-h-60 overflow-y-auto"></div>
+                    </div>
+                    <div>
+                        <label for="purchaseDate" class="block text-sm font-medium text-slate-300 mb-1">購入日</label>
+                        <input type="text" id="purchaseDate" class="form-input w-full rounded-lg py-2 px-3" placeholder="日付を選択...">
+                    </div>
+                    <div>
+                        <label for="quantity" class="block text-sm font-medium text-slate-300 mb-1">数量（株数）</label>
+                        <input type="number" id="quantity" class="form-input w-full rounded-lg py-2 px-3" placeholder="例: 100">
+                    </div>
+                    <button id="addAssetBtn" class="w-full text-white font-bold py-2.5 px-4 rounded-lg btn-gradient">
+                        <i class="fas fa-plus-circle mr-2"></i>ポートフォリオに追加
+                    </button>
+                </div>
+                <h3 class="text-lg sm:text-xl font-bold mb-3">現在のポートフォリオ</h3>
+                <div id="portfolioList" class="space-y-3 max-h-60 overflow-y-auto pr-2">
+                    <p class="text-slate-500">銘柄を追加してください。</p>
+                </div>
+                 <div class="mt-6 border-t border-slate-700 pt-6">
+                     <label for="endDate" class="block text-sm font-medium text-slate-300 mb-1">評価終了日</label>
+                     <input type="text" id="endDate" class="form-input w-full rounded-lg py-2 px-3 mb-4" placeholder="日付を選択...">
+                    <button id="runSimBtn" class="w-full text-white font-bold py-3 px-4 rounded-lg btn-gradient text-lg">
+                        <i class="fas fa-chart-line mr-2"></i>シミュレーション実行
+                    </button>
+                </div>
+            </div>
+            <div class="lg:col-span-2 glass-panel p-4 sm:p-6 rounded-2xl">
+                <h2 class="text-xl sm:text-2xl font-bold mb-4">シミュレーション結果</h2>
+                <div id="resultArea" class="relative">
+                    <div id="loader" class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm flex justify-center items-center z-10 hidden">
+                        <div class="text-center">
+                            <div class="loader mx-auto"></div>
+                            <p class="mt-4 text-lg font-semibold text-slate-300">データを取得・計算中です...</p>
+                        </div>
+                    </div>
+                    <div id="chartContainer" class="h-72 sm:h-80 md:h-96">
+                        <canvas id="assetChart"></canvas>
+                    </div>
+                    <div id="summary" class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center"></div>
+                     <div id="message" class="mt-4 text-center text-red-400 font-semibold"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- グローバル変数と初期設定 ---
+        let portfolio = [];
+        let assetChart = null;
+        let searchTimeout;
+
+        const tickerInput = document.getElementById('ticker');
+        const tickerSuggestions = document.getElementById('tickerSuggestions');
+        const purchaseDateInput = document.getElementById('purchaseDate');
+        const quantityInput = document.getElementById('quantity');
+        const addAssetBtn = document.getElementById('addAssetBtn');
+        const portfolioList = document.getElementById('portfolioList');
+        const runSimBtn = document.getElementById('runSimBtn');
+        const endDateInput = document.getElementById('endDate');
+        const loader = document.getElementById('loader');
+        const summaryDiv = document.getElementById('summary');
+        const messageDiv = document.getElementById('message');
+
+        // --- イベントリスナー ---
+        window.addEventListener('load', () => {
+            const flatpickrConfig = { dateFormat: "Y-m-d", locale: "ja", allowInput: true };
+            flatpickr("#purchaseDate", { ...flatpickrConfig, defaultDate: "today" });
+            flatpickr("#endDate", { ...flatpickrConfig, defaultDate: "today" });
+            addAssetBtn.addEventListener('click', addAssetToPortfolio);
+            runSimBtn.addEventListener('click', runSimulation);
+            tickerInput.addEventListener('input', handleTickerInput);
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.relative')) hideSuggestions();
+            });
+            renderPortfolio();
+        });
+
+        // --- ★★★ 変更点: API呼び出し部分 ★★★ ---
+        // サーバーレス関数を呼び出すように修正
+
+        async function handleTickerInput(e) {
+            const query = e.target.value;
+            clearTimeout(searchTimeout);
+            if (query.length < 2) {
+                hideSuggestions();
+                return;
+            }
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/get_stock_data?type=search&query=${encodeURIComponent(query)}`);
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    const suggestions = await response.json();
+                    showSuggestions(suggestions);
+                } catch (error) {
+                    console.error("Search fetch error:", error);
+                }
+            }, 300);
+        }
+
+        async function runSimulation() {
+            if (portfolio.length === 0) {
+                showMessage("シミュレーションを行うには、少なくとも1つの銘柄をポートフォリオに追加してください。");
+                return;
+            }
+            
+            loader.classList.remove('hidden');
+            runSimBtn.disabled = true;
+            runSimBtn.classList.add('opacity-50');
+            showMessage("");
+            summaryDiv.innerHTML = '';
+            if (assetChart) {
+                assetChart.destroy();
+                assetChart = null;
+            }
+
+            try {
+                const response = await fetch('/api/get_stock_data?type=portfolio', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ portfolio, endDate: endDateInput.value })
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'シミュレーションデータの取得に失敗しました。');
+                }
+                const result = await response.json();
+                onSimulationSuccess(result);
+            } catch (error) {
+                onSimulationFailure(error);
+            }
+        }
+
+        // --- 既存の関数 (showSuggestionsのUI部分のみ変更) ---
+        function showSuggestions(suggestions) {
+            if (!suggestions || suggestions.length === 0) {
+                hideSuggestions();
+                return;
+            }
+            tickerSuggestions.innerHTML = '';
+            suggestions.forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'suggestion-item p-3 hover:bg-slate-700 flex justify-between items-center';
+                const nameAndTicker = document.createElement('div');
+                nameAndTicker.innerHTML = `<span class="font-semibold text-slate-100">${s.name}</span> <span class="text-sm text-slate-400 ml-2">${s.ticker}</span>`;
+                const exchange = document.createElement('span');
+                exchange.className = 'text-xs bg-slate-600 text-slate-300 rounded-full px-2 py-1';
+                exchange.textContent = s.exchange;
+                item.appendChild(nameAndTicker);
+                item.appendChild(exchange);
+                item.addEventListener('click', () => {
+                    tickerInput.value = s.ticker;
+                    hideSuggestions();
+                });
+                tickerSuggestions.appendChild(item);
+            });
+            tickerSuggestions.classList.remove('hidden');
+        }
+
+        // --- 以下の関数はGAS版から変更なし ---
+        function hideSuggestions() { tickerSuggestions.classList.add('hidden'); tickerSuggestions.innerHTML = ''; }
+        function onSimulationSuccess(result) {
+            const { combinedData, totalInitialInvestment } = result;
+            drawChart(combinedData);
+            displaySummary(combinedData, totalInitialInvestment);
+            loader.classList.add('hidden');
+            runSimBtn.disabled = false;
+            runSimBtn.classList.remove('opacity-50');
+        }
+        function onSimulationFailure(error) {
+            console.error("シミュレーションエラー:", error);
+            showMessage(error.message);
+            loader.classList.add('hidden');
+            runSimBtn.disabled = false;
+            runSimBtn.classList.remove('opacity-50');
+        }
+        function addAssetToPortfolio() {
+            const ticker = tickerInput.value.trim().toUpperCase();
+            const purchaseDate = purchaseDateInput.value;
+            const quantity = parseFloat(quantityInput.value);
+            if (!ticker || !purchaseDate || !quantity || quantity <= 0) {
+                showMessage("すべての項目を正しく入力してください。");
+                return;
+            }
+            portfolio.push({ ticker, purchaseDate, quantity });
+            renderPortfolio();
+            clearInputFields();
+            showMessage("");
+        }
+        function renderPortfolio() {
+            portfolioList.innerHTML = '';
+            if (portfolio.length === 0) {
+                portfolioList.innerHTML = '<p class="text-slate-500 text-sm">銘柄を追加してください。</p>';
+                return;
+            }
+            portfolio.forEach((asset, index) => {
+                const assetDiv = document.createElement('div');
+                assetDiv.className = 'bg-slate-700/50 p-3 rounded-lg flex justify-between items-center';
+                assetDiv.innerHTML = `<div><p class="font-bold text-slate-100">${asset.ticker}</p><p class="text-sm text-slate-400">${asset.purchaseDate} に ${asset.quantity} 株</p></div><button data-index="${index}" class="remove-btn text-slate-500 hover:text-red-400 transition-colors"><i class="fas fa-trash-alt"></i></button>`;
+                portfolioList.appendChild(assetDiv);
+            });
+            document.querySelectorAll('.remove-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const index = e.currentTarget.getAttribute('data-index');
+                    portfolio.splice(index, 1);
+                    renderPortfolio();
+                });
+            });
+        }
+        function clearInputFields() { tickerInput.value = ''; quantityInput.value = ''; }
+        function showMessage(msg) { messageDiv.textContent = msg; }
+        function drawChart(data) {
+            const ctx = document.getElementById('assetChart').getContext('2d');
+            const sortedLabels = Object.keys(data).sort((a, b) => new Date(a) - new Date(b));
+            const sortedValues = sortedLabels.map(label => data[label]);
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+            gradient.addColorStop(1, 'rgba(17, 24, 39, 0)');
+            if (assetChart) assetChart.destroy();
+            assetChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedLabels,
+                    datasets: [{
+                        label: 'ポートフォリオ資産評価額 (円)',
+                        data: sortedValues,
+                        borderColor: '#10b981',
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointHoverBackgroundColor: '#10b981',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { type: 'time', time: { unit: 'year', tooltipFormat: 'yyyy/MM/dd' }, grid: { color: 'rgba(55, 65, 81, 0.5)' }, ticks: { color: '#9ca3af' } },
+                        y: { grid: { color: 'rgba(55, 65, 81, 0.5)' }, ticks: { color: '#9ca3af', callback: (v) => (v/10000).toLocaleString() + '万円' } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => `評価額: ${c.parsed.y.toLocaleString('ja-JP', { style: 'currency', currency: 'JPY' })}` } }
+                    }
+                }
+            });
+        }
+        function displaySummary(data, initialInvestment) {
+            const sortedLabels = Object.keys(data).sort((a, b) => new Date(a) - new Date(b));
+            const finalValue = sortedLabels.length > 0 ? data[sortedLabels[sortedLabels.length - 1]] : 0;
+            const profitLoss = finalValue - initialInvestment;
+            const returnPercentage = initialInvestment > 0 ? (profitLoss / initialInvestment) * 100 : 0;
+            const isProfit = profitLoss >= 0;
+            summaryDiv.innerHTML = `<div class="glass-panel p-4 rounded-xl"><h4 class="text-xs sm:text-sm font-medium text-slate-400 mb-1">初期投資額</h4><p class="text-xl sm:text-2xl font-bold text-slate-100">${initialInvestment.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</p></div><div class="glass-panel p-4 rounded-xl"><h4 class="text-xs sm:text-sm font-medium text-slate-400 mb-1">最終評価額</h4><p class="text-xl sm:text-2xl font-bold text-slate-100">${finalValue.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円</p></div><div class="glass-panel p-4 rounded-xl"><h4 class="text-xs sm:text-sm font-medium text-slate-400 mb-1">トータルリターン</h4><p class="text-xl sm:text-2xl font-bold ${isProfit ? 'text-emerald-400' : 'text-red-400'}">${isProfit ? '+' : ''}${profitLoss.toLocaleString('ja-JP', { maximumFractionDigits: 0 })} 円 <span class="text-base sm:text-lg">(${isProfit ? '+' : ''}${returnPercentage.toFixed(2)}%)</span></p></div>`;
+        }
+    </script>
+</body>
+</html>
