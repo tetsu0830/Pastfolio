@@ -1,5 +1,4 @@
-// VercelやNetlifyのサーバーレス関数として動作するコード
-// GASのコードとほぼ同じロジックですが、Node.jsの作法で記述しています。
+// VercelのNode.jsランタイムで動作するサーバーレス関数
 
 // 銘柄検索のロジック
 async function handleSearch(query) {
@@ -27,8 +26,6 @@ async function handleSearch(query) {
 
 // ポートフォリオ計算のロジック
 async function handlePortfolio(portfolio, endDateStr) {
-    // GASのprocessPortfolioForGAS関数とほぼ同じロジックをここに移植
-    // まずは必要なデータをすべてYahoo Financeから取得
     const minDateStr = portfolio.reduce((min, p) => p.purchaseDate < min ? p.purchaseDate : min, endDateStr);
     const uniqueTickers = new Set(portfolio.map(p => p.ticker));
     if (portfolio.some(p => !p.ticker.endsWith('.T'))) {
@@ -40,7 +37,6 @@ async function handlePortfolio(portfolio, endDateStr) {
         allData[ticker] = await fetchHistoricalData(ticker, minDateStr, endDateStr);
     }
     
-    // GAS版と同様の計算処理...
     const usdJpyRates = allData['JPY=X'] || {};
     let totalInitialInvestment = 0;
     for (const asset of portfolio) {
@@ -61,7 +57,14 @@ async function handlePortfolio(portfolio, endDateStr) {
     
     try {
         lastUsdJpyRate = findPriceOnDate(usdJpyRates, minDateStr, minDateStr);
-    } catch (e) { /* ... */ }
+    } catch (e) {
+        const firstRateDate = Object.keys(usdJpyRates).sort()[0];
+        if (firstRateDate) {
+            lastUsdJpyRate = usdJpyRates[firstRateDate];
+        } else if (portfolio.some(a => !a.ticker.endsWith('.T'))) {
+            throw new Error("USD/JPYの為替レートデータが取得できませんでした。");
+        }
+    }
 
     while (dateCursor <= finalDate) {
         const currentDateStr = dateCursor.toISOString().split('T')[0];
@@ -92,7 +95,7 @@ async function handlePortfolio(portfolio, endDateStr) {
     return { combinedData, totalInitialInvestment };
 }
 
-// 補助関数 (GAS版から流用)
+// 補助関数
 async function fetchHistoricalData(ticker, startDate, endDate) {
     const startTimestamp = new Date(startDate + 'T00:00:00Z').getTime() / 1000;
     const endTimestamp = new Date(endDate + 'T23:59:59Z').getTime() / 1000;
@@ -125,29 +128,33 @@ function findPriceOnDate(priceData, targetDateStr, minDateStr) {
     return price;
 }
 
-
-// メインのハンドラ関数 (Vercelの作法)
-export default async function handler(request, response) {
-    const { searchParams, method } = new URL(request.url, `http://${request.headers.host}`);
-    const type = searchParams.get('type');
+// Vercelの作法に合わせたメインのハンドラ関数
+module.exports = async (request, response) => {
+    // request.queryでURLのパラメータを取得
+    const { type, query } = request.query;
+    // request.methodでHTTPメソッドを取得
+    const { method } = request;
 
     try {
-        if (type === 'search') {
-            const query = searchParams.get('query');
+        if (type === 'search' && method === 'GET') {
             const data = await handleSearch(query);
+            // CORSヘッダーを追加して、どのドメインからでもアクセスできるようにする
+            response.setHeader('Access-Control-Allow-Origin', '*');
             return response.status(200).json(data);
         }
 
         if (type === 'portfolio' && method === 'POST') {
-            const body = await request.json();
-            const { portfolio, endDate } = body;
+            // request.bodyでPOSTされたデータを取得 (Vercelが自動でJSONをパースしてくれる)
+            const { portfolio, endDate } = request.body;
             const data = await handlePortfolio(portfolio, endDate);
+            response.setHeader('Access-Control-Allow-Origin', '*');
             return response.status(200).json(data);
         }
 
+        // 該当しないリクエストは400エラーを返す
         return response.status(400).json({ error: 'Bad Request' });
     } catch (error) {
         console.error(error);
         return response.status(500).json({ error: error.message });
     }
-}
+};
