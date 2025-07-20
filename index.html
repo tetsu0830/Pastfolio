@@ -181,7 +181,7 @@
             }
             searchTimeout = setTimeout(async () => {
                 try {
-                    // ★★★ 修正点: URLから ?type=search を削除 ★★★
+                    // GETリクエストで銘柄検索
                     const response = await fetch(`/api/get_stock_data?query=${encodeURIComponent(query)}`);
                     if (!response.ok) throw new Error('Network response was not ok');
                     const suggestions = await response.json();
@@ -209,7 +209,7 @@
             }
 
             try {
-                // ★★★ 修正点: URLから ?type=portfolio を削除 ★★★
+                // POSTリクエストでポートフォリオ計算
                 const response = await fetch('/api/get_stock_data', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

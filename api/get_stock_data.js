@@ -108,7 +108,7 @@ async function fetchHistoricalData(ticker, startDate, endDate) {
     const priceData = {};
     if (result.timestamp) {
         result.timestamp.forEach((ts, i) => {
-            if (result.indicators.quote[0].close[i] !== null) {
+            if (result.indicators.quote[0].close[i] !== null && result.indicators.quote[0].close[i] !== undefined) {
                 priceData[new Date(ts * 1000).toISOString().split('T')[0]] = result.indicators.quote[0].close[i];
             }
         });
@@ -130,29 +130,36 @@ function findPriceOnDate(priceData, targetDateStr, minDateStr) {
 
 // Vercelの作法に合わせたメインのハンドラ関数
 module.exports = async (request, response) => {
-    // request.queryでURLのパラメータを取得
-    const { type, query } = request.query;
-    // request.methodでHTTPメソッドを取得
     const { method } = request;
 
     try {
-        if (type === 'search' && method === 'GET') {
+        // GETリクエストは銘柄検索
+        if (method === 'GET') {
+            const { query } = request.query;
+            if (!query) {
+                return response.status(400).json({ error: 'Query parameter is required for search.' });
+            }
             const data = await handleSearch(query);
-            // CORSヘッダーを追加して、どのドメインからでもアクセスできるようにする
             response.setHeader('Access-Control-Allow-Origin', '*');
             return response.status(200).json(data);
         }
 
-        if (type === 'portfolio' && method === 'POST') {
-            // request.bodyでPOSTされたデータを取得 (Vercelが自動でJSONをパースしてくれる)
+        // POSTリクエストはポートフォリオ計算
+        if (method === 'POST') {
+            // ★★★ 修正点: リクエストボディの存在を明確にチェック ★★★
+            if (!request.body || !request.body.portfolio || !request.body.endDate) {
+                return response.status(400).json({ error: 'Invalid request body. "portfolio" and "endDate" are required.' });
+            }
             const { portfolio, endDate } = request.body;
             const data = await handlePortfolio(portfolio, endDate);
             response.setHeader('Access-Control-Allow-Origin', '*');
             return response.status(200).json(data);
         }
 
-        // 該当しないリクエストは400エラーを返す
-        return response.status(400).json({ error: 'Bad Request' });
+        // GET, POST以外は許可しないメソッドとしてエラーを返す
+        response.setHeader('Allow', ['GET', 'POST']);
+        return response.status(405).json({ error: `Method ${method} Not Allowed` });
+
     } catch (error) {
         console.error(error);
         return response.status(500).json({ error: error.message });
