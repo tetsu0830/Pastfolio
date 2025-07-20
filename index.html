@@ -12,7 +12,6 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/ja.js"></script>
     <style>
-        /* 以前のCSSと同じなので省略 */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         :root {
             --bg-dark: #111827;
@@ -70,7 +69,6 @@
     </style>
 </head>
 <body class="min-h-screen">
-    <!-- UI部分はGAS版と同じなので省略 -->
     <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-7xl">
         <header class="text-center mb-8 sm:mb-10">
             <div class="flex items-center justify-center gap-3 mb-2">
@@ -173,9 +171,7 @@
             renderPortfolio();
         });
 
-        // --- ★★★ 変更点: API呼び出し部分 ★★★ ---
-        // サーバーレス関数を呼び出すように修正
-
+        // --- API呼び出し部分 ---
         async function handleTickerInput(e) {
             const query = e.target.value;
             clearTimeout(searchTimeout);
@@ -185,6 +181,7 @@
             }
             searchTimeout = setTimeout(async () => {
                 try {
+                    // APIエンドポイントを呼び出す
                     const response = await fetch(`/api/get_stock_data?type=search&query=${encodeURIComponent(query)}`);
                     if (!response.ok) throw new Error('Network response was not ok');
                     const suggestions = await response.json();
@@ -212,6 +209,7 @@
             }
 
             try {
+                // APIエンドポイントを呼び出す
                 const response = await fetch('/api/get_stock_data?type=portfolio', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -228,7 +226,7 @@
             }
         }
 
-        // --- 既存の関数 (showSuggestionsのUI部分のみ変更) ---
+        // --- 既存の関数 ---
         function showSuggestions(suggestions) {
             if (!suggestions || suggestions.length === 0) {
                 hideSuggestions();
@@ -253,8 +251,6 @@
             });
             tickerSuggestions.classList.remove('hidden');
         }
-
-        // --- 以下の関数はGAS版から変更なし ---
         function hideSuggestions() { tickerSuggestions.classList.add('hidden'); tickerSuggestions.innerHTML = ''; }
         function onSimulationSuccess(result) {
             const { combinedData, totalInitialInvestment } = result;
