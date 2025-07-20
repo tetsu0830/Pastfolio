@@ -181,8 +181,8 @@
             }
             searchTimeout = setTimeout(async () => {
                 try {
-                    // APIエンドポイントを呼び出す
-                    const response = await fetch(`/api/get_stock_data?type=search&query=${encodeURIComponent(query)}`);
+                    // ★★★ 修正点: URLから ?type=search を削除 ★★★
+                    const response = await fetch(`/api/get_stock_data?query=${encodeURIComponent(query)}`);
                     if (!response.ok) throw new Error('Network response was not ok');
                     const suggestions = await response.json();
                     showSuggestions(suggestions);
@@ -209,8 +209,8 @@
             }
 
             try {
-                // APIエンドポイントを呼び出す
-                const response = await fetch('/api/get_stock_data?type=portfolio', {
+                // ★★★ 修正点: URLから ?type=portfolio を削除 ★★★
+                const response = await fetch('/api/get_stock_data', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ portfolio, endDate: endDateInput.value })
@@ -226,7 +226,7 @@
             }
         }
 
-        // --- 既存の関数 ---
+        // --- 既存の関数 (以下、変更なし) ---
         function showSuggestions(suggestions) {
             if (!suggestions || suggestions.length === 0) {
                 hideSuggestions();
