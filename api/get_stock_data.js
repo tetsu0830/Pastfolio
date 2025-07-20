@@ -146,7 +146,6 @@ module.exports = async (request, response) => {
 
         // POSTリクエストはポートフォリオ計算
         if (method === 'POST') {
-            // ★★★ 修正点: リクエストボディの存在を明確にチェック ★★★
             if (!request.body || !request.body.portfolio || !request.body.endDate) {
                 return response.status(400).json({ error: 'Invalid request body. "portfolio" and "endDate" are required.' });
             }
